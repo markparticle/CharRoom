@@ -8,11 +8,12 @@
 #define SERVER_CPP
 #include "Common.hpp"
 
+const char SERVER_WELCOME[] = "Welcome you join to the CharRoom! Your chat ID is: %d\n";
+const char SERVER_MESSAGE[] = "Client%d say:  >> %s";  
+
 class Server {
 public:
     Server();
-
-    ~Server();
 
     void Init();
 
@@ -22,17 +23,19 @@ public:
 
     void Close();
 
-    int SendBroadCastMessage(const int clintFd);
+    void CloseClientFd(int clientFd);
+
+    int SendBroadCastMessage(const int clientFd);
     
 private:
-    struct sockaddr_in serverAddr_;
+    int socketFd_;
 
-    int listener_;
+    struct sockaddr_in serverAddr_;
 
     int epollFd_;
 
-    list<int> clintsList_;
-}
+    std::list<int> clientsList_;
+};
 
 
 #endif //SERVER_CPP
