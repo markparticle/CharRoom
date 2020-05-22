@@ -4,37 +4,38 @@
  * @copyleft GPL 2.0
  */ 
 
-#ifndef CLINET_HPP
-#define CLINET_HPP
+#ifndef CLIENT_HPP
+#define CLIENT_HPP
 #include "Common.hpp"
 
-class Clinet {
-public:
-    Clinet();
+const char EXIT[] = "exit";
 
-    ~Clinet();
+class Client {
+public:
+    Client();
+
+    ~Client();
 
     void Start();
 
-    void Connect();
+    void Init();
 
     void Close();
     
 private:
     struct sockaddr_in serverAddr_;
 
-    int sockFd_;
+    int socketFd_;
 
     int epollFd_;
 
     int pid_;
 
-    int pipeFd[2];
+    int pipeFd_[2];
 
-    bool isClinetWork;
+    bool isClientWork;
 
-    char message_[BUF_SIZE];
-}
+    char message_[BUFF_SIZE];
+};
 
-
-#endif //CLINET_HPP
+#endif //CLIENT_HPP

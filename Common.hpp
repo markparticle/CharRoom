@@ -8,6 +8,8 @@
 #define COMMON_HPP
 
 #include <sys/socket.h>
+#include<sys/types.h>
+#include<sys/wait.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/epoll.h>
@@ -19,13 +21,13 @@
 #include <string.h>
 #include <list>
 
-const int SERVER_PORT = 8964;
+const int SERVER_PORT = 8965;
 
 const char SERVER_IP[] =  "127.0.0.1";
 
 const int EPOLL_SIZE = 5000;
 
-const int BUF_SIZE = 0xFFFF;
+const int BUFF_SIZE = 0xFFFF;
 
 const int TIMEOUT = -1;
 
@@ -42,10 +44,9 @@ static void AddSocketFdToEpoll(int socketFd, int epollFd, bool enableET)
     epoll_ctl(epollFd, EPOLL_CTL_ADD, socketFd, &ev);
 
     //设为非阻塞
-    int flags = fcntl(socketFd, F_GETFD, 0);
-    fcntl(socketFd, F_SETFL, flags | O_NONBLOCK);
+    fcntl(socketFd, F_SETFL, fcntl(socketFd, F_GETFD, 0) | O_NONBLOCK);
 
-    printf("SocketFd(%d) added to epoll(%d)!...\n", socketFd, epollFd);
+    //printf("SocketFd(%d) added to epoll(%d)...\n", socketFd, epollFd);
 }
 
 #endif //COMMON_HPP
