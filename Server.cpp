@@ -17,13 +17,16 @@ Server::Server()
     epollFd_ = 0;
 }
 
+Server::~Server()
+{
+    clientsList_.clear();
+    Close();
+}
 
 void Server::Init()
 {
     int ret;
-
-    cout << "Init Server..." << endl;
-
+    cout << "Start Server..." << endl;
     socketFd_ = socket(AF_INET, SOCK_STREAM, 0);
     if (socketFd_ < 0)
     {
@@ -44,32 +47,33 @@ void Server::Init()
         perror("Listen socket error!...");
         exit(-1);
     }
+    cout << "Start to listen: " << SERVER_IP << ":" << SERVER_PORT << endl;
 
+    //内核中创建事件
     epollFd_ = epoll_create(EPOLL_SIZE);
     if (epollFd_ < 0)
     {
         perror("Create epoll error!...");
         exit(-1);
     }
-
+    //添加监听事件
     AddSocketFdToEpoll(socketFd_, epollFd_, true);
 }
 
 void Server::Close()
 {
-    
     close(socketFd_);
     close(epollFd_);
     cout << "Server Closed!..." << endl;
 }
 
-void Server::CloseClientFd(int clientFd)
+void Server::CloseClientFd(const int clientFd)
 {
     close(clientFd);
     clientsList_.remove(clientFd);
 
-    cout << "ClientID : " << clientFd
-         << " closed!...\n Now there are "
+    cout << "Client:" << clientFd
+         << " quited!...\nNow there are "
          << clientsList_.size()
          << " client in the char room"
          << endl;
@@ -88,79 +92,93 @@ void Server::Start()
             perror("Epoll events error!...");
             break;
         }
-        cout << "Epoll events count = " << eventsCnt << endl;
         for (int i = 0; i < eventsCnt; i++)
         {
             int eventSockFd = events[i].data.fd;
-            //简历一个新的连接
+            //建立一个新的连接
             if (eventSockFd == socketFd_)
             {
 
                 struct sockaddr_in clientAddr;
                 socklen_t addrLen = sizeof(struct sockaddr);
-                int clinetFd = accept(socketFd_, (struct sockaddr *)&clientAddr, &addrLen);
+                int clientFd = accept(socketFd_, (struct sockaddr *)&clientAddr, &addrLen);
 
-                cout << "Clinent connection from: "
+                cout << "Client from: "
                      << inet_ntoa(clientAddr.sin_addr) << " : "
-                     << ntohs(clientAddr.sin_port) << ", clinetFd : "
-                     << clinetFd << endl;
+                     << ntohs(clientAddr.sin_port) << ", clientFd: "
+                     << clientFd << endl;
 
-                AddSocketFdToEpoll(clinetFd, epollFd_, true);
-                clientsList_.push_back(clinetFd);
-                cout << "Add newClinent : " << clinetFd << " to epoll..." << endl;
+                AddSocketFdToEpoll(clientFd, epollFd_, true);
+                clientsList_.push_back(clientFd);
+                cout << "Add newClinent : " << clientFd << " to epoll..." << endl;
                 cout << "Now there are " << clientsList_.size() << " clients in the ChatRoom..." << endl;
 
-                char message[BUF_SIZE];
-                bzero(message, BUF_SIZE);
-                sprintf(message, SERVER_WELCOME, clinetFd);
-                ret = send(clinetFd, message, BUF_SIZE, 0);
+                char message[BUFF_SIZE];
+                bzero(message, BUFF_SIZE);
+                sprintf(message, SERVER_WELCOME, clientFd);
+                ret = send(clientFd, message, BUFF_SIZE, 0);
                 if (ret < 0)
                 {
-                    perror("Send message to Client:%d error!...");
-                    CloseClientFd(clinetFd);
+                    perror("Send message to error!...");
+                    CloseClientFd(clientFd);
                     exit(-1);
                 }
+                bzero(message, BUFF_SIZE);
+                sprintf(message, CLIENT_JOIN, clientFd);
+                SendToAllClient(message, clientFd);
             }
             else
             {
-                ret = SendBroadCastMessage(socketFd_);
-                if (ret < 0)
-                {
-                    perror("Send broadCast message error!...");
-                    Close();
-                    exit(-1);
-                }
+                ret = SendBroadCastMessage(eventSockFd);
             }
         }
     }
     Close();
 }
 
-int Server::SendBroadCastMessage(int clientFd)
+int Server::SendToAllClient(const char *message, const int clientFd)
 {
-    char buff[BUF_SIZE], message[BUF_SIZE];
-    bzero(buff, BUF_SIZE);
-    bzero(message, BUF_SIZE);
+    int ret = -1;
+    for (auto &item : clientsList_)
+    {
+        if (item == clientFd)
+        {
+            continue;
+        }
+        ret = send(item, message, BUFF_SIZE, 0);
+        if (ret < 0)
+        {
+            perror("Send broadCast message error!...");
+            CloseClientFd(item);
+        }
+    }
+    return ret;
+}
+
+int Server::SendBroadCastMessage(const int clientFd)
+{
+    char buff[BUFF_SIZE], message[BUFF_SIZE];
+    bzero(buff, BUFF_SIZE);
+    bzero(message, BUFF_SIZE);
     int ret;
 
-    int len = recv(clientFd, buff, BUF_SIZE, 0);
+    int len = recv(clientFd, buff, BUFF_SIZE, 0);
     if (len == 0)
     {
         CloseClientFd(clientFd);
     }
     else
     {
-        cout << "Client:%d SendBroadCastMessage..." << clientFd << endl;
-        sprintf(message, SERVER_MESSAGE, clientFd, buff);
-        for (auto &item : clientsList_)
+        if (clientsList_.size() == 1)
         {
-            if (item != clientFd)
-            {
-                ret = send(item, message, BUF_SIZE, 0);
-                if (ret < 0)
-                    return -1;
-            }
+            // 发送提示消息
+            send(clientFd, CAUTION, strlen(CAUTION), 0);
+            return len;
         }
+
+        sprintf(message, SERVER_MESSAGE, clientFd, buff);
+        cout << message << endl;
+        SendToAllClient(message, clientFd);
     }
     return len;
 }

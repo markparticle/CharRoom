@@ -8,12 +8,16 @@
 #define SERVER_CPP
 #include "Common.hpp"
 
-const char SERVER_WELCOME[] = "Welcome you join to the CharRoom! Your chat ID is: %d\n";
-const char SERVER_MESSAGE[] = "Client%d say:  >> %s";  
+const char SERVER_WELCOME[] = "[Server]Welcome you join to the CharRoom!\n[Server]Your chat ID is: %d";
+const char CLIENT_JOIN[] = "[Server]Welcome %d join to the CharRoom!";
+const char SERVER_MESSAGE[] = "[%d]: %s";  
+const char CAUTION[] =  "[Server]There is only one int the char room!";
 
 class Server {
 public:
     Server();
+
+    ~Server();
 
     void Init();
 
@@ -23,9 +27,11 @@ public:
 
     void Close();
 
-    void CloseClientFd(int clientFd);
+    void CloseClientFd(const int clientFd);
 
     int SendBroadCastMessage(const int clientFd);
+    
+    int SendToAllClient(const char *message, const int clientFd = -1);
     
 private:
     int socketFd_;
